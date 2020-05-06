@@ -15,6 +15,7 @@ except IndexError:
 import weakref
 import carla
 import ai_knowledge as data
+import ai_util as util
 
 
 # Monitor is responsible for reading the data from the sensors and telling it to the knowledge
@@ -27,7 +28,10 @@ class Monitor(object):
     weak_self = weakref.ref(self)
     
     self.knowledge.update_data('location', self.vehicle.get_transform().location)
-    self.knowledge.update_data('rotation', self.vehicle.get_transform().rotation)
+    self.knowledge.update_data('heading', self.vehicle.get_transform().rotation)
+    self.knowledge.update_data('velocity', self.vehicle.get_velocity())
+    self.knowledge.update_data('acceleration', self.vehicle.get_acceleration())
+    self.knowledge.update_data('angular_velocity', self.vehicle.get_angular_velocity())
 
     world = self.vehicle.get_world()
     #FIXED: this sensor had the wrong name
@@ -38,9 +42,12 @@ class Monitor(object):
 
   #Function that is called at time intervals to update ai-state
   def update(self, time_elapsed):
-    # Update the position of vehicle into knowledge
+    # Update the position, heading, and movement data of the vehicle into knowledge
     self.knowledge.update_data('location', self.vehicle.get_transform().location)
-    self.knowledge.update_data('rotation', self.vehicle.get_transform().rotation)
+    self.knowledge.update_data('heading', self.vehicle.get_transform().rotation)
+    self.knowledge.update_data('velocity', self.vehicle.get_velocity())
+    self.knowledge.update_data('acceleration', self.vehicle.get_acceleration())
+    self.knowledge.update_data('angular_velocity', self.vehicle.get_angular_velocity())
 
   @staticmethod
   def _on_invasion(weak_self, event):

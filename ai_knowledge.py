@@ -13,6 +13,7 @@ except IndexError:
     pass
 
 import carla
+import ai_util as util
 from enum import Enum
 
 class Status(Enum):
@@ -26,7 +27,13 @@ class Status(Enum):
 class Knowledge(object):
   def __init__(self):
     self.status = Status.ARRIVED
-    self.memory = {'location':carla.Vector3D(0.0,0.0,0.0)}    
+    self.memory = {
+                    'location':carla.Vector3D(0.0,0.0,0.0),
+                    'heading':carla.Rotation(0.0,0.0,0.0),
+                    'velocity':carla.Vector3D(0.0,0.0,0.0),
+                    'acceleration':carla.Vector3D(0.0,0.0,0.0),
+                    'angular_velocity':carla.Vector3D(0.0,0.0,0.0),
+                  }    
     self.destination = self.get_location()
     self.status_changed = lambda *_, **__: None
     self.destination_changed = lambda *_, **__: None
@@ -65,13 +72,31 @@ class Knowledge(object):
   def get_location(self):
     return self.retrieve_data('location')
 
+  # Return current heading of the vehicle
+  def get_heading(self):
+    return self.retrieve_data('heading')
+
+  # Return current velocity of the vehicle
+  def get_velocity(self):
+    return self.retrieve_data('velocity')
+
+  # Return current acceleration of the vehicle
+  def get_acceleration(self):
+    return self.retrieve_data('acceleration')
+
+  # Return current acceleration of the vehicle
+  def get_angular_velocity(self):
+    return self.retrieve_data('angular_velocity')
+
   def arrived_at(self, destination):
     return self.distance(self.get_location(),destination) < 5.0
 
-  def update_destination(self, new_destination):
-    if self.distance(self.destination,new_destination) < 5.0:
+  def update_destination(self, new_destination, force =False):
+    if force or self.distance(self.destination,new_destination) < 5.0:
       self.destination = new_destination
       self.destination_changed(new_destination)
+      #p = get_start_point(world,new_destination)
+      #util.spawn_waypoint_marker(world, actor_list, cone, p.transform)
    
   # A function to receive data from monitor
   # TODO: Add callback so that analyser can know when to parse the data
