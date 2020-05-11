@@ -22,7 +22,7 @@ import time
 class Autopilot(object):
   def __init__(self, vehicle):
     self.vehicle = vehicle
-    self.knowledge = data.Knowledge()
+    self.knowledge = data.Knowledge(vehicle.get_world().get_map())
     self.knowledge.set_status_changed_callback(self.status_updated)
     self.analyser = parser.Analyser(self.knowledge)
     self.monitor = parser.Monitor(self.knowledge, self.vehicle)

@@ -25,16 +25,20 @@ class Status(Enum):
 
 # Class that holds the knowledge of the current state and serves as interaction point for all the modules
 class Knowledge(object):
-  def __init__(self):
+  def __init__(self,map):
+    self.map = map
     self.status = Status.ARRIVED
     self.memory = {
                     'location':carla.Vector3D(0.0,0.0,0.0),
                     'heading':carla.Rotation(0.0,0.0,0.0),
                     'velocity':carla.Vector3D(0.0,0.0,0.0),
-                    'acceleration':carla.Vector3D(0.0,0.0,0.0),
-                    'angular_velocity':carla.Vector3D(0.0,0.0,0.0),
+                    'obstacles':[],
+                    'traffic_light':None,
+                    'traffic_sign':None,
+                    'legal_path':None,
                   }    
     self.destination = self.get_location()
+    self.next_destination = None
     self.status_changed = lambda *_, **__: None
     self.destination_changed = lambda *_, **__: None
     self.data_changed = lambda *_, **__: None
@@ -48,14 +52,25 @@ class Knowledge(object):
   def set_destination_changed_callback(self, callback):
     self.destination_changed = callback
 
-  def get_status(self):
-    return self.status
-
   def set_status(self, new_status):
     self.status = new_status
 
-  def get_current_destination(self):
-    return self.destination
+  def set_traffic_light(self,traffic_light):
+    self.update_data("traffic_light",traffic_light)
+
+  def set_traffic_sign(self,traffic_sign):
+    self.update_data("traffic_sign",traffic_sign)
+
+  def set_legal_path(self,legal_path):
+    self.update_data("legal_path",legal_path)
+
+  def set_obstacles(self, obstacles):
+    self.update_data("obstacles",obstacles)
+
+  def add_obstacle(self, obstacle):
+    obstacles = self.get_obstacles()
+    obstacles.append(obstacle)
+    self.update_data("obstacles",obstacles)
 
   # Retrieving data from memory
   # !Take note that it is unsafe and does not check whether the given field is in dic
@@ -67,6 +82,28 @@ class Knowledge(object):
     if (self.status != Status.CRASHED or new_status == Status.HEALING) and self.status != new_status:
       self.set_status(new_status)
       self.status_changed(new_status)
+
+  def get_status(self):
+    return self.status
+
+  def get_current_destination(self):
+    return self.destination
+
+  def get_next_destination(self):
+    return self.next_destination
+
+  # Obstacles
+  def get_obstacles(self):
+    return self.retrieve_data('obstacles')
+
+  def get_traffic_light(self):
+    return self.retrieve_data('traffic_light')
+
+  def get_traffic_sign(self):
+    return self.retrieve_data('traffic_sign')
+
+  def get_legal_path(self):
+    return self.retrieve_data('legal_path')
 
   # Return current location of the vehicle
   def get_location(self):
@@ -88,13 +125,17 @@ class Knowledge(object):
   def get_angular_velocity(self):
     return self.retrieve_data('angular_velocity')
 
+  def get_map(self):
+    return self.map
+
   def arrived_at(self, destination):
     return self.distance(self.get_location(),destination) < 5.0
 
-  def update_destination(self, new_destination, force =False):
-    if force or self.distance(self.destination,new_destination) < 5.0:
-      self.destination = new_destination
-      self.destination_changed(new_destination)
+  def update_destination(self, new_destination,new_forward_destination=None):
+    #if force or self.distance(self.destination,new_destination) < 5.0:
+    self.destination = new_destination
+    self.next_destination = new_forward_destination
+    self.destination_changed(new_destination)
       #p = get_start_point(world,new_destination)
       #util.spawn_waypoint_marker(world, actor_list, cone, p.transform)
    

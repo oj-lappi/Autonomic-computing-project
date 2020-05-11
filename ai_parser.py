@@ -17,7 +17,6 @@ import carla
 import ai_knowledge as data
 import ai_util as util
 
-
 # Monitor is responsible for reading the data from the sensors and telling it to the knowledge
 # TODO: Implement other sensors (lidar and depth sensors mainly)
 # TODO: Use carla API to read whether car is at traffic lights and their status, update it into knowledge
@@ -30,8 +29,6 @@ class Monitor(object):
     self.knowledge.update_data('location', self.vehicle.get_transform().location)
     self.knowledge.update_data('heading', self.vehicle.get_transform().rotation)
     self.knowledge.update_data('velocity', self.vehicle.get_velocity())
-    self.knowledge.update_data('acceleration', self.vehicle.get_acceleration())
-    self.knowledge.update_data('angular_velocity', self.vehicle.get_angular_velocity())
 
     world = self.vehicle.get_world()
     #FIXED: this sensor had the wrong name
@@ -46,8 +43,12 @@ class Monitor(object):
     self.knowledge.update_data('location', self.vehicle.get_transform().location)
     self.knowledge.update_data('heading', self.vehicle.get_transform().rotation)
     self.knowledge.update_data('velocity', self.vehicle.get_velocity())
-    self.knowledge.update_data('acceleration', self.vehicle.get_acceleration())
-    self.knowledge.update_data('angular_velocity', self.vehicle.get_angular_velocity())
+
+    #TODO: doesn't work, need landmarks probably, these are way too short notice
+    if self.vehicle.is_at_traffic_light():
+      self.knowledge.set_traffic_light(self.vehicle.get_traffic_light())
+    else:
+      self.knowledge.set_traffic_light(None)
 
   @staticmethod
   def _on_invasion(weak_self, event):
@@ -61,7 +62,17 @@ class Monitor(object):
 class Analyser(object):
   def __init__(self, knowledge):
     self.knowledge = knowledge
+    self.knowledge.set_data_changed_callback(self.data_changed)
 
   #Function that is called at time intervals to update ai-state
   def update(self, time_elapsed):
     return
+
+  def data_changed(self, data_key):
+    print("U",end="")
+    if data_key == 'traffic_light':
+      tl = self.knowledge.get_traffic_light()
+      if tl is not None:
+        # Find a place to stop, unless you are in the junction already
+        print("LIGHT")
+

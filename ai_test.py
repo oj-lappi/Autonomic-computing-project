@@ -26,7 +26,6 @@ import time
 import argparse
 
 import custom_ai as ai
-import ai_util as util
 
 def get_dist(point1, point2):
     return point1.location.distance(point2)
@@ -61,10 +60,9 @@ def main():
  
     try:
         client = carla.Client('localhost', 2000)
-        client.set_timeout(2.0)
+        client.set_timeout(5.0)
         world = client.get_world()
         blueprints = world.get_blueprint_library()
-        cone = blueprints.find("static.prop.trafficcone02")
         blueprints = blueprints.filter('vehicle.*')
         blueprints = [x for x in blueprints if int(x.get_attribute('number_of_wheels')) == 4]
         blueprints = [x for x in blueprints if not x.id.endswith('isetta')]
@@ -123,11 +121,6 @@ def main():
         autopilot = ai.Autopilot(vehicle)
         autopilot.set_destination(destination)
         autopilot.set_route_finished_callback(route_finished)
-
-        p = get_start_point(world,destination)
-        util.spawn_waypoint_marker(world, actor_list, cone, p.transform)
-        #util.spawn_waypoint_marker(world, actor_list, cone,ex2.transform)
-        #util.spawn_waypoint_marker(world, actor_list, cone,ex3.transform)
 
         if ms == 2:
             spawn = start.get_right_lane()
