@@ -16,13 +16,14 @@ import carla
 import ai_knowledge as data
 import ai_control as control
 import ai_parser as parser
+import ai_util as util
 import time
 
 #Manager Script
 class Autopilot(object):
   def __init__(self, vehicle):
     self.vehicle = vehicle
-    self.knowledge = data.Knowledge(vehicle.get_world().get_map())
+    self.knowledge = data.Knowledge(vehicle.get_world().get_map(),vehicle.get_world().get_actors().filter("*traffic_light*"))
     self.knowledge.set_status_changed_callback(self.status_updated)
     self.analyser = parser.Analyser(self.knowledge)
     self.monitor = parser.Monitor(self.knowledge, self.vehicle)
@@ -62,7 +63,9 @@ class Autopilot(object):
 
   # Main interaction point with autopilot - set the destination, so that it does the rest
   def set_destination(self, destination):
-    self.planner.make_plan(self.vehicle.get_transform(), destination)
+    if not self.knowledge.arrived_at(destination):
+      print(f"PLAN: src: {util.loc_string(self.knowledge.get_location())} dest:{util.loc_string(destination)}")
+      self.planner.make_plan(self.knowledge.get_location(), destination)
 
   
 

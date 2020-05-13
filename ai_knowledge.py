@@ -14,6 +14,7 @@ except IndexError:
 
 import carla
 import ai_util as util
+import numpy as np
 from enum import Enum
 
 class Status(Enum):
@@ -25,17 +26,24 @@ class Status(Enum):
 
 # Class that holds the knowledge of the current state and serves as interaction point for all the modules
 class Knowledge(object):
-  def __init__(self,map):
+  def __init__(self,map,traffic_lights):
     self.map = map
     self.status = Status.ARRIVED
     self.memory = {
                     'location':carla.Vector3D(0.0,0.0,0.0),
                     'heading':carla.Rotation(0.0,0.0,0.0),
                     'velocity':carla.Vector3D(0.0,0.0,0.0),
+                    'target_speed':10,
+                    'lidar_data':[],
+                    'lidar_movement':[],
                     'obstacles':[],
                     'traffic_light':None,
                     'traffic_sign':None,
-                    'legal_path':None,
+                    'at_traffic_light':False,
+                    'at_junction':False,
+                    'approaching_junction':False,
+                    'override_destination':None,
+                    'traffic_lights':traffic_lights,
                   }    
     self.destination = self.get_location()
     self.next_destination = None
@@ -55,14 +63,29 @@ class Knowledge(object):
   def set_status(self, new_status):
     self.status = new_status
 
+  def set_target_speed(self, new_target_speed):
+    self.update_data('target_speed',new_target_speed)
+
   def set_traffic_light(self,traffic_light):
     self.update_data("traffic_light",traffic_light)
 
   def set_traffic_sign(self,traffic_sign):
     self.update_data("traffic_sign",traffic_sign)
 
-  def set_legal_path(self,legal_path):
-    self.update_data("legal_path",legal_path)
+  def set_at_traffic_light(self,at_traffic_light):
+    self.update_data("at_traffic_light",at_traffic_light)
+
+  def set_at_junction(self,at_junction):
+    self.update_data("at_junction",at_junction)
+
+  def set_approaching_junction(self,approaching_junction):
+    self.update_data("approaching_junction",approaching_junction)
+
+  def set_override_destination(self,override_destination):
+    self.update_data("override_destination",override_destination)
+
+  def set_lidar_data(self,lidar_data):
+    self.update_data("lidar_data",lidar_data)
 
   def set_obstacles(self, obstacles):
     self.update_data("obstacles",obstacles)
@@ -92,9 +115,24 @@ class Knowledge(object):
   def get_next_destination(self):
     return self.next_destination
 
+  def get_target_speed(self):
+    return self.retrieve_data('target_speed')
+
   # Obstacles
   def get_obstacles(self):
     return self.retrieve_data('obstacles')
+
+  def get_all_traffic_lights(self):
+    return self.retrieve_data('traffic_lights')
+
+  def get_at_traffic_light(self):
+    return self.retrieve_data('at_traffic_light')
+
+  def get_at_junction(self):
+    return self.retrieve_data('at_junction')
+
+  def get_approaching_junction(self):
+    return self.retrieve_data('approaching_junction')
 
   def get_traffic_light(self):
     return self.retrieve_data('traffic_light')
@@ -102,8 +140,8 @@ class Knowledge(object):
   def get_traffic_sign(self):
     return self.retrieve_data('traffic_sign')
 
-  def get_legal_path(self):
-    return self.retrieve_data('legal_path')
+  def get_override_destination(self):
+    return self.retrieve_data('override_destination')
 
   # Return current location of the vehicle
   def get_location(self):
@@ -117,6 +155,17 @@ class Knowledge(object):
   def get_velocity(self):
     return self.retrieve_data('velocity')
 
+  def get_velocity_magnitude(self):
+    v = self.retrieve_data('velocity')
+    v_mag = np.linalg.norm(np.array([v.x,v.y]))
+    if abs(v_mag) < .01:
+      return 0
+    else:
+      return v_mag
+  
+  def get_lidar_data(self):
+    return self.retrieve_data('lidar_data')
+
   # Return current acceleration of the vehicle
   def get_acceleration(self):
     return self.retrieve_data('acceleration')
@@ -129,7 +178,7 @@ class Knowledge(object):
     return self.map
 
   def arrived_at(self, destination):
-    return self.distance(self.get_location(),destination) < 5.0
+    return self.distance(self.get_location(),destination) < 4.0
 
   def update_destination(self, new_destination,new_forward_destination=None):
     #if force or self.distance(self.destination,new_destination) < 5.0:
