@@ -64,7 +64,7 @@ def main():
         world = client.get_world()
         blueprints = world.get_blueprint_library()
         blueprints = blueprints.filter('vehicle.*')
-        blueprints = blueprints.filter("*nissan.micra*")
+        #blueprints = blueprints.filter("*nissan.micra*")
         blueprints = [x for x in blueprints if int(x.get_attribute('number_of_wheels')) == 4]
         blueprints = [x for x in blueprints if not x.id.endswith('isetta')]
 

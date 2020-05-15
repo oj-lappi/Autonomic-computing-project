@@ -46,7 +46,7 @@ class Executor(object):
       self.update_control(None,[0,0],0)
 
     if status == Status.HEALING:
-      print("Control healing")
+      print("Avoiding obstacle")
       dest = self.knowledge.get_current_destination()
       next = self.knowledge.get_next_destination()
       target_speed = self.knowledge.get_target_speed()
@@ -62,11 +62,8 @@ class Executor(object):
     # Set control values
     control = carla.VehicleControl()
     if target_speed != 0:
-      throttle_signal,brake_signal,steering_signal = self.calculate_control(destination,forward_waypoint,target_speed,delta_time)
-      control.throttle = throttle_signal
-      control.brake = brake_signal
+      control.throttle,control.brake,control.steer,control.reverse = self.calculate_control(destination,forward_waypoint,target_speed,delta_time)
       control.hand_brake = False
-      control.steer = steering_signal
     else:
       control.brake = 1
       control.throttle = 0
@@ -76,7 +73,7 @@ class Executor(object):
 
   def calculate_control(self,destination,forward_waypoint,target_speed,delta_time):
     car_position = self.knowledge.get_location()
-    car_heading = self.knowledge.get_heading()
+    car_heading = self.knowledge.get_heading().get_forward_vector()
     car_velocity = self.knowledge.get_velocity()
     car_velocity = np.array([car_velocity.x,car_velocity.y])
 
@@ -93,7 +90,7 @@ class Executor(object):
     v_err_mag =  np.linalg.norm(velocity_error)
     step_mag = np.linalg.norm(step_target_vector)
     if v_err_mag < 0.01 or step_mag < 0.01:
-      return (0,0,0)
+      return (0,0,0,False)
     else:
       velocity_correlation = np.dot(step_target_vector/step_mag,velocity_error/v_err_mag)
 
@@ -101,15 +98,27 @@ class Executor(object):
     steering_signal = self.steering_control.step(magnitude*sign,delta_time)
 
     brake_signal = 0
-
+    reverse = False
     ### Calculate throttle and brake
     if throttle_signal < 0:
-      brake_signal = -throttle_signal
-      throttle_signal = 0
+      ## Check if we're going forward
+      car_vec = np.array([car_heading.x,car_heading.y])
+      v_mag = self.knowledge.get_velocity_magnitude()
+      if v_mag == 0:
+        forwardness = 0
+      else:
+        forwardness = np.dot(car_vec,car_velocity/v_mag)
+      if forwardness > 0:
+        brake_signal = -throttle_signal
+        throttle_signal = 0
+      else:
+        print("REV")
+        reverse = True
+        throttle_signal = -throttle_signal
     elif throttle_signal < 0.3:
       brake_signal = 0.3 -throttle_signal
 
-    return (throttle_signal,brake_signal,steering_signal)
+    return (throttle_signal,brake_signal,steering_signal,reverse)
 
 
 
@@ -181,7 +190,6 @@ class Planner(object):
       return deque([destination])
     # Some variables
     hop = 10
-    short_hop = 10
     arrival_threshold = 8
     visited = {}
     #forward_target = wp_end.transform.location

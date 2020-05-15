@@ -32,13 +32,14 @@ class Monitor(object):
     self.knowledge.update_data('location', self.vehicle.get_transform().location)
     self.knowledge.update_data('heading', self.vehicle.get_transform().rotation)
     self.knowledge.update_data('velocity', self.vehicle.get_velocity())
+    self.knowledge.update_data('bounding_box', self.vehicle.bounding_box)
 
     world = self.vehicle.get_world()
     lidar_bp = world.get_blueprint_library().find('sensor.lidar.ray_cast')
     lidar_bp.set_attribute('range','10.0')
     #lidar_bp.set_attribute('rotation_frequency',str(40))
-    lidar_bp.set_attribute('upper_fov','10.0')
-    lidar_bp.set_attribute('lower_fov','-36.0')
+    lidar_bp.set_attribute('upper_fov','-10.0')
+    lidar_bp.set_attribute('lower_fov','-40.0')
     lidar_bp.set_attribute('channels','32')
     lidar_bp.set_attribute('points_per_second','5000')
     lidar_bp.set_attribute('sensor_tick','0.5')
@@ -75,37 +76,8 @@ class Monitor(object):
     if not self:
       return
     self.knowledge.set_lidar_data(event)
+    self.knowledge.update_data('lidar_transform',event.transform)
       
-    #points = np.frombuffer(event.raw_data, dtype=np.dtype('f4'))
-    #points = np.reshape(points,(int(points.shape[0]/3),3))
-
-def compute_lidar_proximity(points,lidar_angle):
-  # N, NE, E, SE, S, SW, W, NW
-  dist = [10000, 10000, 10000, 10000, 10000, 10000, 10000, 10000]
-  for point in points:
-
-    angle = lidar_angle - math.atan2(point[1],point[0])
-    if angle >= -math.pi/8 and angle < math.pi/8:
-      index = 0
-    elif angle >= math.pi/8 and angle < 3*math.pi/8:
-      index = 1
-    elif angle >= 3*math.pi/8 and angle < 5*math.pi/8:
-      index = 2
-    elif angle >= 5*math.pi/8 and angle < 7*math.pi/8:
-      index = 3
-    elif angle >= 7*math.pi/8 or angle < -7*math.pi/8:
-      index = 4
-    elif angle >= -7*math.pi/8 and angle < -5*math.pi/8:
-      index = 5
-    elif angle > -5*math.pi/8 and angle < -3*math.pi/8:
-      index = 6
-    elif angle > -3*math.pi/8 and angle < -math.pi/8:
-      index = 7
-
-    mag = np.linalg.norm(point)
-    if mag < dist[index]:
-      dist[index] = mag
-  return dist
 
 def compute_closest_point(points):
   min = 99999
@@ -116,14 +88,6 @@ def compute_closest_point(points):
       min_p = p
       min = d
   return min_p,min
-
-def compute_lidar_movement(prev_data,curr_data):
-  mvmnt = []
-  for i in range(len(prev_data)):
-    mvmnt.append(curr_data[i]-prev_data[i])
-
-  return mvmnt
-
 
 # Analyser is responsible for parsing all the data that the knowledge has received from Monitor and turning it into something usable
 class Analyser(object):
@@ -142,11 +106,17 @@ class Analyser(object):
   def update_obstacle_analysis(self):
     ld = self.knowledge.get_lidar_data()
     loc = self.knowledge.get_location()
+    bounding_box = self.knowledge.get_bounding_box()
+    lidar_t = self.knowledge.get_lidar_transform()
     closest = None
     dist = 1100000
     for p in ld:
       d=np.linalg.norm(np.array([p.x,p.y]))
-      if d < dist and d > 1:
+      # Ignore self and ground
+      if bounding_box.contains(p,lidar_t) or p.z < 1.74:
+        #print(f"p {p} inside box")
+        continue
+      if d < dist:
         dist = d
         closest = p
 
@@ -162,7 +132,8 @@ class Analyser(object):
       dot = np.dot(v,u)
 
 
-    if dist < 2.7 or (dot > .8 and dist < 3):
+    if dist < 2.7 or (dot > .9 and dist < 3 and v_mag > 10):
+      print(f"Reacting to {closest}, distance {dist}")
       self.knowledge.set_obstacles([closest])
       dest = find_safe_destination([closest],loc)
       self.knowledge.set_override_destination(dest)
@@ -250,5 +221,5 @@ def find_safe_destination(obstacles,car_location):
   o = obstacles[0]
   v = np.array([o.x,o.y])
   v = v/np.linalg.norm(v)
-  dest = carla.Vector3D(x=car_location.x - v[0], y=car_location.y -v[1])
+  dest = carla.Vector3D(x=car_location.x - 2*v[0], y=car_location.y -4*v[1])
   return dest

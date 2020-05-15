@@ -50,8 +50,7 @@ def calculate_steering_error(destination,destination2,car_position,car_heading, 
 
 
     # Compare to cars heading
-    car_vector = car_heading.get_forward_vector()
-    car_vector = np.array([car_vector.x,car_vector.y])
+    car_vector = np.array([car_heading.x,car_heading.y])
     corr = np.dot(target_vector,car_vector)/(
             math.hypot(car_vector[0],car_vector[1])*
             math.hypot(target_vector[0],target_vector[1])

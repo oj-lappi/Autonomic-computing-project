@@ -33,6 +33,8 @@ class Knowledge(object):
                     'location':carla.Vector3D(0.0,0.0,0.0),
                     'heading':carla.Rotation(0.0,0.0,0.0),
                     'velocity':carla.Vector3D(0.0,0.0,0.0),
+                    'bounding_box':carla.Vector3D(0.0,0.0,0.0),
+                    'lidar_transform':carla.Transform(),
                     'target_speed':10,
                     'lidar_data':[],
                     'lidar_movement':[],
@@ -142,6 +144,12 @@ class Knowledge(object):
 
   def get_override_destination(self):
     return self.retrieve_data('override_destination')
+
+  def get_bounding_box(self):
+    return self.retrieve_data('bounding_box')
+
+  def get_lidar_transform(self):
+    return self.retrieve_data('lidar_transform')
 
   # Return current location of the vehicle
   def get_location(self):
